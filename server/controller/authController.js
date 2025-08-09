@@ -44,7 +44,7 @@ exports.sendOtp = async (req, res) => {
 // 2️⃣ Login with OTP
 exports.loginWithOtp = async (req, res) => {
     try {
-        const { mobileNo, otp } = req.body;
+        const { mobileNo, otp, language, location } = req.body;
 
         if (!mobileNo || !otp) {
             return res.status(400).json({ status: "fail", message: "Mobile number and OTP are required" });
@@ -69,8 +69,24 @@ exports.loginWithOtp = async (req, res) => {
         let session = await Session.findOne({ user: user._id, endedAt: { $exists: false } });
 
         if (!session) {
+            // Create session data object
+            const sessionData = {
+                user: user._id,
+                messages: []
+            };
+
+            // Add language if provided (defaults to 'en' as per model)
+            if (language) {
+                sessionData.language = language;
+            }
+
+            // Add location if provided (optional as per model)
+            if (location) {
+                sessionData.location = location;
+            }
+
             // Create a new chat session
-            session = await Session.create({ user: user._id, messages: [] });
+            session = await Session.create(sessionData);
         }
 
         res.status(200).json({

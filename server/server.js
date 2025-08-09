@@ -11,7 +11,7 @@ const bankingRouter = require('./routes/banking');
 const geminiRouter = require('./routes/gemini');
 const authRouter = require('./routes/authRoutes');
 const sessionRouter = require('./routes/sessionRoutes');
-const unansweredQuestion = require('./routes/unansweredQuestionsRoutes')
+const adminRouter = require('./routes/adminRoutes')
 // You can configure it further if needed, e.g., app.use(cors({ origin: 'http://example.com' }));
 app.use(cors({
     origin: true, // Allow all origins in development
@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 app.use('/api', bankingRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/session', sessionRouter);
-app.use('/api/unanswered-questions', unansweredQuestion);
+app.use('/api/admin', adminRouter);
 app.use('/api/gemini', geminiRouter);
 app.post('/api/voice-chat', upload.single('audio'), bankingRouter);
 app.post('/api/convert-audio', upload.single('audio'), bankingRouter);

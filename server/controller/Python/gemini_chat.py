@@ -75,9 +75,19 @@ class GeminiChat:
 # Initialize Gemini chat instance (only for conversation history storage)
 gemini_chat = GeminiChat()
 
-def intelligent_banking_chat(message, session_id=None):
+def fix_surrogates(text):
+    """Recode UTF-8 to handle surrogate pairs."""
+    return text.encode('utf-8', 'surrogatepass').decode('utf-8')
+
+def intelligent_banking_chat(message, session_id=None, language=None):
     """Intelligent chat that uses Gemini ONLY for intent understanding and response formatting"""
     try:
+        # Simple message handling and fixing surrogates
+        message_clean = fix_surrogates(str(message)).strip()
+        
+        # Use default language if not provided
+        selected_language = language or 'en'
+        
         # Banking functions dictionary
         banking_functions_dict = {
             "check_balance": check_balance,
@@ -100,25 +110,26 @@ def intelligent_banking_chat(message, session_id=None):
         gemini_model = genai.GenerativeModel('gemini-2.0-flash')
         
         # TASK 1: Understand intent using Gemini (ONLY allowed task #1)
-        intent = understand_intent(message, 'en', gemini_model, banking_functions_dict, logger)
-        logger.info(f"🔍 Intent recognized: {intent}")
-        print(f"🔍 Intent recognized: {intent}", flush=True)
+        intent = understand_intent(message_clean, selected_language, gemini_model, banking_functions_dict, logger)
+        logger.info(f"Intent recognized: {intent}")
+        print(f"Intent recognized: {intent}", flush=True)
+        
         # Get raw response from appropriate banking function (no Gemini involved)
         if intent in banking_functions_dict:
-            raw_response = banking_functions_dict[intent](message)
+            raw_response = banking_functions_dict[intent](message_clean)
         else:
-            raw_response = general_inquiry(message)
+            raw_response = general_inquiry(message_clean)
         
         # TASK 2: Format response using Gemini (ONLY allowed task #2)
-        formatted_response = format_response(raw_response, 'en', message, gemini_model, logger)
+        formatted_response = format_response(raw_response, selected_language, message_clean, gemini_model, logger)
         
         # Save conversation if session_id provided
         if session_id:
-            gemini_chat.save_conversation(session_id, message, formatted_response)
+            gemini_chat.save_conversation(session_id, message_clean, formatted_response)
         
         return {
             'response': formatted_response,
-            'user_message': message,
+            'user_message': message_clean,
             'session_id': session_id,
             'timestamp': datetime.now().isoformat(),
             'status': 'success',
@@ -127,16 +138,26 @@ def intelligent_banking_chat(message, session_id=None):
         }
         
     except Exception as e:
-        logger.error(f"Error in intelligent banking chat: {e}")
+        logger.error(f"Error in intelligent banking chat: {str(e)}")
         return {
             'error': str(e),
-            'user_message': message,
+            'user_message': str(message),
             'session_id': session_id,
             'timestamp': datetime.now().isoformat(),
             'status': 'error'
         }
 
-def simple_gemini_chat(message, session_id=None):
+def simple_gemini_chat(message, session_id=None, language=None):
     """Simple function to chat with banking functions - Gemini restricted to intent & formatting only"""
-    result = intelligent_banking_chat(message, session_id)
-    return json.dumps(result)
+    try:
+        result = intelligent_banking_chat(message, session_id, language)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as e:
+        error_result = {
+            'error': str(e),
+            'user_message': str(message),
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'error'
+        }
+        return json.dumps(error_result, ensure_ascii=False)

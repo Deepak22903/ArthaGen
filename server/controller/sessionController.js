@@ -1,5 +1,43 @@
 const Session = require("../models/session");
 
+// 1️⃣ Create a new session
+exports.createSession = async (req, res) => {
+    try {
+        const { userId, sessionName, language, location } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                status: "fail",
+                message: "User ID is required"
+            });
+        }
+
+        // Create session data object
+        const sessionData = {
+            user: userId,
+            messages: []
+        };
+
+        // Add optional fields
+        if (sessionName) sessionData.sessionName = sessionName;
+        if (language) sessionData.language = language;
+        if (location) sessionData.location = location;
+
+        const session = await Session.create(sessionData);
+
+        res.status(201).json({
+            status: "success",
+            message: "Session created successfully",
+            session
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "error",
+            message: err.message
+        });
+    }
+};
+
 exports.addMessage = async (req, res) => {
     try {
         const { sessionId, question, answer } = req.body;
@@ -181,6 +219,51 @@ exports.getSessionById = async (req, res) => {
 
         res.status(200).json({
             status: "success",
+            session
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "error",
+            message: err.message
+        });
+    }
+};
+
+// 7️⃣ Update session language and location
+exports.updateSessionPreferences = async (req, res) => {
+    try {
+        const { sessionId, language, location } = req.body;
+
+        if (!sessionId) {
+            return res.status(400).json({
+                status: "fail",
+                message: "Session ID is required"
+            });
+        }
+
+        const session = await Session.findById(sessionId);
+        if (!session) {
+            return res.status(404).json({
+                status: "fail",
+                message: "Session not found"
+            });
+        }
+
+        // Update language if provided
+        if (language) {
+            session.language = language;
+        }
+
+        // Update location if provided (location is optional)
+        if (location) {
+            session.location = location;
+        }
+
+        await session.save();
+
+        res.status(200).json({
+            status: "success",
+            message: "Session preferences updated successfully",
             session
         });
     } catch (err) {

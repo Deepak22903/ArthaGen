@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini Chat Test</title>
+    <title>ArthaGen</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -120,7 +120,7 @@
 </head>
 <body>
     <div class="chat-container">
-        <h1>🤖 Gemini Chat Test</h1>
+        <h1>🤖 ArthaGen</h1>
         
         <div class="session-info">
             <strong>Session ID:</strong> <span id="sessionId"></span>
@@ -252,8 +252,19 @@
 
         async function startRecording() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                // Use audio/wav format for better STT compatibility
+                mediaRecorder = new MediaRecorder(stream, { 
+                    mimeType: 'audio/webm;codecs=opus' // Will convert to WAV later
+                });
                 audioChunks = [];
 
                 mediaRecorder.ondataavailable = event => {
@@ -308,22 +319,27 @@
                 // Create FormData for upload
                 const formData = new FormData();
                 formData.append('audio', audioFile);
-                formData.append('language_code', 'en'); // Default to English, can be made configurable
+                formData.append('language_code', 'mar'); // Default to English, can be made configurable
                 
-                addMessage('system', '🔄 Converting speech to text...');
+                addMessage('system', '🔄 Converting to WAV and processing speech...');
                 
-                // Send to STT endpoint
+                // Send to STT endpoint with FFmpeg conversion
                 const response = await fetch('http://localhost:8000/api/audio-to-text', {
                     method: 'POST',
                     body: formData
                 });
                 
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
+                console.log('STT Response:', result);
                 
                 if (result.error) {
                     addMessage('error', `STT Error: ${result.error}`);
-                } else if (result.ctc) {
-                    const transcribedText = result.ctc;
+                } else if (result.transcription && result.transcription.ctc) {
+                    const transcribedText = result.transcription.ctc;
                     addMessage('system', `📝 Transcribed: "${transcribedText}"`);
                     
                     // Set the text in the input field
@@ -334,6 +350,7 @@
                     // Automatically send the message
                     await sendMessage();
                 } else {
+                    console.log('Unexpected response format:', result);
                     addMessage('error', 'No transcription received from STT service');
                 }
                 
@@ -350,7 +367,7 @@
         }
 
         // Add welcome message
-        addMessage('system', 'Welcome! Gemini is restricted to intent understanding and response formatting only. Banking functions provide the actual responses. You can type or use the microphone button 🎤 to record audio.');
+        addMessage('system', 'Welcome! BoM is restricted to intent understanding and response formatting only. Banking functions provide the actual responses. You can type or use the microphone button 🎤 to record audio.');
     </script>
 </body>
 </html>

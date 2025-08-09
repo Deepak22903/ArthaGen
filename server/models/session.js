@@ -14,6 +14,19 @@ const sessionSchema = new mongoose.Schema(
     {
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
         sessionName: { type: String, default: "Untitled Session" },
+        language: { type: String, default: "en" }, // Language preference for the session
+        location: {
+            type: {
+                country: { type: String, default: "Unknown" }, // Default to "Unknown" if not provided
+                state: { type: String, default: "Unknown" },   // Default to "Unknown" if not provided
+                city: { type: String, default: "Unknown" },    // Default to "Unknown" if not provided
+                coordinates: {
+                    latitude: { type: Number },
+                    longitude: { type: Number }
+                }
+            },
+            required: false // Location is optional
+        },
         messages: [messageSchema],
         sessionFeedbackRating: { type: Number, min: 1, max: 5 }, // 🌟 Added
         sessionFeedbackText: { type: String, trim: true },        // 🌟 Added

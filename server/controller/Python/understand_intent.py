@@ -1,14 +1,19 @@
 # understand_intent.py
 # Extracted from 1.py
+import sys
 
 def understand_intent(user_input, language, gemini_model, banking_functions, logger):
     """Use Gemini to understand user intent and select appropriate function"""
-    functions_list = ", ".join(banking_functions.keys())
-    prompt = f"""
-        You are a banking assistant.Analyze the user's query and determine which banking service they need.
+    try:
+        # Simple text cleaning without complex encoding
+        user_input_clean = str(user_input).strip()
         
-        User query: "{user_input}"
-        Language: { language }
+        functions_list = ", ".join(banking_functions.keys())
+        prompt = f"""
+        You are a banking assistant. Analyze the user's query and determine which banking service they need.
+        
+        User query: "{user_input_clean}"
+        Language: {language}
         
         Available banking functions:
     -check_balance: Check account balance via SMS/Mobile banking
@@ -27,32 +32,39 @@ def understand_intent(user_input, language, gemini_model, banking_functions, log
         Return ONLY the function name from the list above that best matches the user's intent.
         If no function matches, return "general_inquiry".
         """
-    try:
+        
         response = gemini_model.generate_content(prompt)
         intent = response.text.strip().lower()
         if intent in banking_functions:
             return intent
         else:
             return "general_inquiry"
+            
     except Exception as e:
-        logger.error(f"Error in intent recognition: {e}")
+        logger.error(f"Error in intent recognition: {str(e)}")
         return "general_inquiry"
 
 def format_response(raw_response, language, user_query, gemini_model, logger):
     """Use Gemini to format the response in the user's language"""
-    prompt = f"""
-        Format the following banking information response in { language } language in a helpful and conversational manner.
+    try:
+        # Simple text cleaning without complex encoding
+        user_query_clean = str(user_query).strip()
+        raw_response_clean = str(raw_response).strip()
+        
+        prompt = f"""
+        Format the following banking information response in {language} language in a helpful and conversational manner.
         Make sure the response is accurate, clear, and maintains the original information.
         Critical instructions,responses should be solely based on functions output (raw response give to you). Do no add anything else deviating from the original content of raw response.
-        Original query: { user_query }
-        Raw response: { raw_response }
+        Original query: {user_query_clean}
+        Raw response: {raw_response_clean}
         
-        Provide a well - formatted, helpful response in { language } that a bank customer would understand easily.
+        Provide a well-formatted, helpful response in {language} that a bank customer would understand easily.
         Keep the response concise but informative.
         """
-    try:
+        
         response = gemini_model.generate_content(prompt)
         return response.text.strip()
+            
     except Exception as e:
-        logger.error(f"Error in response formatting: {e}")
+        logger.error(f"Error in response formatting: {str(e)}")
         return raw_response

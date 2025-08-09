@@ -1,0 +1,21 @@
+# AI/ML Libraries
+google-generativeai
+torch
+torchaudio
+transformers
+
+# Text-to-Speech
+gtts
+
+# HTTP Requests
+requests
+
+# Standard libraries (usually don't need to be listed, but included for completeness)
+# json (built-in)
+# os (built-in)
+# sys (built-in)
+# logging (built-in)
+# datetime (built-in)
+# uuid (built-in)
+# base64 (built-in)
+# io (built-in)

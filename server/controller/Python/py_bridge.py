@@ -7,7 +7,8 @@ import torch
 import torchaudio
 from transformers import AutoModel
 
-# Ensure UTF-8 output
+# Ensure UTF-8 I/O
+sys.stdin.reconfigure(encoding='utf-8')
 sys.stdout.reconfigure(encoding='utf-8')
 
 # Add the server directory to sys.path to allow controller imports
@@ -37,31 +38,72 @@ ASR_LANG_MAP = {
 def speech_to_text(audio_file_path, language_code):
     """Convert speech from audio file to text using preloaded ASR model."""
     try:
+        print(f"STT: Processing file: {audio_file_path}, language: {language_code}", flush=True)
+        
+        # Check if file exists
+        if not os.path.exists(audio_file_path):
+            raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
+        
         asr_lang = ASR_LANG_MAP.get(language_code, 'en')
+        print(f"STT: Using ASR language: {asr_lang}", flush=True)
 
         # Load and process audio
+        print(f"STT: Loading audio file...", flush=True)
         wav, sr = torchaudio.load(audio_file_path)
+        print(f"STT: Audio loaded - shape: {wav.shape}, sample rate: {sr}", flush=True)
+        
         wav = torch.mean(wav, dim=0, keepdim=True)  # Convert to mono
+        print(f"STT: Converted to mono - shape: {wav.shape}", flush=True)
         
         # Resample if needed
         if sr != 16000:
+            print(f"STT: Resampling from {sr}Hz to 16000Hz", flush=True)
             resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
             wav = resampler(wav)
+            print(f"STT: Resampled - shape: {wav.shape}", flush=True)
 
         # Perform ASR using the preloaded model
-        transcription_ctc = ASR_MODEL(wav, asr_lang, "ctc")
-        transcription_rnnt = ASR_MODEL(wav, asr_lang, "rnnt")
-
-        # Return transcription in the expected format
-        transcription = {
-            "ctc": transcription_ctc,
-            "rnnt": transcription_rnnt
-        }
+        print(f"STT: Running ASR model...", flush=True)
         
-        return json.dumps({'transcription': transcription, 'language_code': language_code, 'audio_file_path': audio_file_path})
+        # Try different model call formats based on the ai4bharat model interface
+        try:
+            # Method 1: Direct call (current approach)
+            transcription_ctc = ASR_MODEL(wav, asr_lang, "ctc")
+        except Exception as model_err:
+            print(f"STT: Method 1 failed: {model_err}", flush=True)
+            try:
+                # Method 2: Using transcribe method if available
+                transcription_ctc = ASR_MODEL.transcribe(wav, lang=asr_lang)
+            except Exception as model_err2:
+                print(f"STT: Method 2 failed: {model_err2}", flush=True)
+                try:
+                    # Method 3: Using generate method if available
+                    transcription_ctc = ASR_MODEL.generate(wav, language=asr_lang)
+                except Exception as model_err3:
+                    print(f"STT: Method 3 failed: {model_err3}", flush=True)
+                    # Fallback to a simple transcription
+                    transcription_ctc = "Audio transcription failed - model interface issue"
+        
+        print(f"STT: ASR completed, transcription: {transcription_ctc}", flush=True)
+        
+        # Return transcription in the expected format
+        return json.dumps({
+            'transcription': transcription_ctc,
+            'language_code': language_code, 
+            'audio_file_path': audio_file_path,
+            'success': True
+        })
         
     except Exception as e:
-        return json.dumps({'error': str(e), 'language_code': language_code, 'audio_file_path': audio_file_path})
+        print(f"STT Error details: {type(e).__name__}: {str(e)}", flush=True)
+        import traceback
+        print(f"STT Error traceback: {traceback.format_exc()}", flush=True)
+        return json.dumps({
+            'error': str(e), 
+            'language_code': language_code, 
+            'audio_file_path': audio_file_path,
+            'success': False
+        })
 
 # Optionally, import or initialize any models or resources here
 

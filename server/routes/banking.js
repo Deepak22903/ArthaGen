@@ -5,6 +5,9 @@ const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
 const multer = require('multer');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path');
+const fs = require('fs');
 
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
@@ -112,13 +115,66 @@ router.post('/audio-to-text', upload.single('audio'), async (req, res) => {
     }
 
     const { language_code } = req.body;
+    console.log("Language code received:", language_code);
     if (!language_code) {
         return res.status(400).json({ error: 'language_code is required' });
     }
 
     try {
-        const result = await callPythonFunction('speech_to_text', [req.file.path, language_code]);
-        res.json(result);
+        // Create permanent file path with original filename if provided
+        const originalFilename = req.file.originalname || `audio_${Date.now()}.webm`;
+        const permanentPath = path.join('uploads', originalFilename);
+
+        // Copy the uploaded file to permanent location
+        fs.copyFileSync(req.file.path, permanentPath);
+        console.log(`Audio file saved permanently as: ${permanentPath}`);
+
+        // Create output path for WAV file (for STT processing)
+        const wavFilename = `${path.basename(originalFilename, path.extname(originalFilename))}.wav`;
+        const wavPath = path.join('uploads', wavFilename);
+
+        // Convert audio to WAV format using ffmpeg for better STT quality
+        await new Promise((resolve, reject) => {
+            console.log(`Converting ${permanentPath} to ${wavPath}`);
+            ffmpeg(permanentPath)
+                .audioChannels(1)           // Mono
+                .audioFrequency(16000)      // 16kHz sample rate for speech recognition
+                .audioCodec('pcm_s16le')    // PCM 16-bit little-endian
+                .format('wav')
+                .save(wavPath)
+                .on('end', () => {
+                    console.log('Audio conversion completed:', wavPath);
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error('FFmpeg conversion error:', err);
+                    reject(err);
+                })
+                .on('progress', (progress) => {
+                    console.log('Processing: ' + progress.percent + '% done');
+                });
+        });
+
+        // Use the converted WAV file for speech-to-text
+        const result = await callPythonFunction('speech_to_text', [wavPath, language_code]);
+
+        // Clean up temporary files (keep both original webm and converted wav)
+        try {
+            fs.unlinkSync(req.file.path); // Original temporary uploaded file
+            console.log('Temporary files cleaned up');
+        } catch (cleanupErr) {
+            console.warn('Cleanup error:', cleanupErr);
+        }
+
+        // Add file info to response
+        const response = {
+            ...result,
+            savedFile: permanentPath,
+            wavFile: wavPath,
+            originalFilename: originalFilename
+        };
+
+        res.json(response);
     } catch (err) {
         console.error("Error in /audio-to-text:", err);
         res.status(500).json({ error: err.toString() });
