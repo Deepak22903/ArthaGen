@@ -14,12 +14,17 @@ const sessionRouter = require('./routes/sessionRoutes');
 const unansweredQuestion = require('./routes/unansweredQuestionsRoutes')
 // You can configure it further if needed, e.g., app.use(cors({ origin: 'http://example.com' }));
 app.use(cors({
-    origin: 'http://localhost:5173', // Replace with your frontend URL, no trailing slash
-    credentials: true
+    origin: true, // Allow all origins in development
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 app.use(express.json());                         // 👈 Handles JSON req bodies
 app.use(express.urlencoded({ extended: true })); // 👈 Handles form data
 app.use(cookieParser());
+
+// Serve static files (including gemini_test.html)
+app.use(express.static('.'));
 
 if (process.env.NODE_ENV === "development") {
     app.use(morgan("dev"));
