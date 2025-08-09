@@ -11,7 +11,7 @@ const upload = multer({ dest: 'uploads/' });
 
 // Start the persistent Python bridge
 console.log("Starting persistent Python bridge...");
-const pyProcess = spawn('../../BoM/venv/Scripts/python.exe', ['./controller/Python/py_bridge.py']);
+const pyProcess = spawn('python', ['./controller/Python/py_bridge.py']);
 
 // Log any Python-side errors
 pyProcess.stderr.on('data', (data) => {

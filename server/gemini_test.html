@@ -41,6 +41,15 @@
             background-color: #e9ecef;
             color: #333;
         }
+        .intent-info {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            font-size: 12px;
+            padding: 5px 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
         .input-container {
             display: flex;
             gap: 10px;
@@ -67,6 +76,28 @@
         button:disabled {
             background-color: #6c757d;
             cursor: not-allowed;
+        }
+        .audio-btn {
+            background-color: #28a745;
+            min-width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .audio-btn:hover {
+            background-color: #218838;
+        }
+        .audio-btn.recording {
+            background-color: #dc3545;
+            animation: pulse 1s infinite;
+        }
+        .audio-btn.recording:hover {
+            background-color: #c82333;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
         .controls {
             margin-bottom: 20px;
@@ -98,18 +129,16 @@
 
         <div class="controls">
             <label>
-                <input type="radio" name="chatMode" value="simple" checked> Simple Chat
+                <input type="radio" name="chatMode" value="simple" checked> Simple Chat (Intent + Format Only)
             </label>
-            <label style="margin-left: 15px;">
-                <input type="radio" name="chatMode" value="context"> Contextual Chat
-            </label>
-            <button onclick="clearConversation()" style="margin-left: 20px; padding: 5px 10px; font-size: 12px;">Clear History</button>
+            <small style="display: block; color: #666; margin-top: 5px;">Gemini restricted to intent understanding and response formatting only</small>
         </div>
 
         <div class="chat-messages" id="chatMessages"></div>
         
         <div class="input-container">
             <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleEnterKey(event)">
+            <button onclick="toggleRecording()" id="audioBtn" class="audio-btn" title="Click to record audio">🎤</button>
             <button onclick="sendMessage()" id="sendBtn">Send</button>
         </div>
     </div>
@@ -117,6 +146,11 @@
     <script>
         let sessionId = generateSessionId();
         document.getElementById('sessionId').textContent = sessionId;
+
+        // Audio recording variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
 
         function generateSessionId() {
             return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
@@ -143,6 +177,15 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+        function addIntentInfo(intent) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const intentDiv = document.createElement('div');
+            intentDiv.className = 'intent-info';
+            intentDiv.textContent = `🔍 Intent recognized: ${intent}`;
+            messagesDiv.appendChild(intentDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
@@ -158,10 +201,8 @@
             input.value = '';
             
             try {
-                const chatMode = document.querySelector('input[name="chatMode"]:checked').value;
-                const endpoint = chatMode === 'simple' ? '/api/gemini/chat' : '/api/gemini/chat-context';
-                
-                const response = await fetch(`http://localhost:5000${endpoint}`, {
+                // Only use simple chat endpoint - no contextual chat available
+                const response = await fetch(`http://localhost:8000/api/gemini/chat`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -177,7 +218,12 @@
                 if (result.error) {
                     addMessage('error', `Error: ${result.error}`);
                 } else {
+                    // Show intent recognition
+                    if (result.intent) {
+                        addIntentInfo(result.intent);
+                    }
                     addMessage('ai', result.response);
+                    console.log('Intent recognized:', result.intent);
                 }
                 
             } catch (error) {
@@ -190,17 +236,110 @@
         }
 
         async function clearConversation() {
+            // Clear conversation function removed - just clear the UI
+            document.getElementById('chatMessages').innerHTML = '';
+            addMessage('system', 'Conversation display cleared! (Note: Server-side history may still exist)');
+        }
+
+        // Audio recording functions
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+
+        async function startRecording() {
             try {
-                const response = await fetch(`http://localhost:5000/api/gemini/conversation/${sessionId}`, {
-                    method: 'DELETE'
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await processAudio(audioBlob);
+                    
+                    // Stop all tracks to turn off microphone
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                
+                const audioBtn = document.getElementById('audioBtn');
+                audioBtn.textContent = '⏹️';
+                audioBtn.classList.add('recording');
+                audioBtn.title = 'Click to stop recording';
+                
+                addMessage('system', '🎤 Recording started... Click the microphone button again to stop.');
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                addMessage('error', 'Error starting recording. Please check microphone permissions.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                const audioBtn = document.getElementById('audioBtn');
+                audioBtn.textContent = '🎤';
+                audioBtn.classList.remove('recording');
+                audioBtn.title = 'Click to record audio';
+                
+                addMessage('system', '⏹️ Recording stopped. Processing audio...');
+            }
+        }
+
+        async function processAudio(audioBlob) {
+            try {
+                // Convert blob to file
+                const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+                
+                // Create FormData for upload
+                const formData = new FormData();
+                formData.append('audio', audioFile);
+                formData.append('language_code', 'en'); // Default to English, can be made configurable
+                
+                addMessage('system', '🔄 Converting speech to text...');
+                
+                // Send to STT endpoint
+                const response = await fetch('http://localhost:8000/api/audio-to-text', {
+                    method: 'POST',
+                    body: formData
                 });
                 
                 const result = await response.json();
-                document.getElementById('chatMessages').innerHTML = '';
-                addMessage('system', 'Conversation history cleared!');
+                
+                if (result.error) {
+                    addMessage('error', `STT Error: ${result.error}`);
+                } else if (result.ctc) {
+                    const transcribedText = result.ctc;
+                    addMessage('system', `📝 Transcribed: "${transcribedText}"`);
+                    
+                    // Set the text in the input field
+                    document.getElementById('messageInput').value = transcribedText;
+                    
+                    addMessage('system', '🔍 Analyzing intent and generating response...');
+                    
+                    // Automatically send the message
+                    await sendMessage();
+                } else {
+                    addMessage('error', 'No transcription received from STT service');
+                }
                 
             } catch (error) {
-                addMessage('error', `Error clearing conversation: ${error.message}`);
+                console.error('Error processing audio:', error);
+                addMessage('error', `Error processing audio: ${error.message}`);
             }
         }
 
@@ -211,7 +350,7 @@
         }
 
         // Add welcome message
-        addMessage('system', 'Welcome! Start chatting with Gemini. Choose simple chat for basic responses or contextual chat to maintain conversation history.');
+        addMessage('system', 'Welcome! Gemini is restricted to intent understanding and response formatting only. Banking functions provide the actual responses. You can type or use the microphone button 🎤 to record audio.');
     </script>
 </body>
 </html>

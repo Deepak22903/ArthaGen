@@ -11,17 +11,18 @@ def understand_intent(user_input, language, gemini_model, banking_functions, log
         Language: { language }
         
         Available banking functions:
+    -check_balance: Check account balance via SMS/Mobile banking
     - transfer_money: Transfer money using RTGS/NEFT/IMPS / UPI
-        - loan_eligibility: Check Kisan Credit Card eligibility and documentation
-            - link_aadhaar: Link Aadhaar to bank account
-                - activate_mobile_banking: Activate mobile banking services
-                    - open_fd_rd: Open Fixed Deposit or Recurring Deposit
-                        - card_services: Debit card activation / blocking services
-                            - find_branch_atm: Find nearby Bank of Maharashtra branches / ATMs
-                                - mini_statement: Get mini statements via missed call / SMS / app
-                                    - fraud_prevention: UPI fraud prevention and safety tips
-                                        - rekyc_process: Re - KYC process information
-                                            - reset_mpin: Reset MPIN securely
+    - loan_eligibility: Check Kisan Credit Card eligibility and documentation
+    - link_aadhaar: Link Aadhaar to bank account
+    - activate_mobile_banking: Activate mobile banking services
+    - open_fd_rd: Open Fixed Deposit or Recurring Deposit
+    - card_services: Debit card activation / blocking services
+    - find_branch_atm: Find nearby Bank of Maharashtra branches / ATMs
+    - mini_statement: Get mini statements via missed call / SMS / app
+    - fraud_prevention: UPI fraud prevention and safety tips and any type of fraud prevention
+    - rekyc_process: Re - KYC process information
+    - reset_mpin: Reset MPIN securely
         
         Return ONLY the function name from the list above that best matches the user's intent.
         If no function matches, return "general_inquiry".
@@ -42,7 +43,7 @@ def format_response(raw_response, language, user_query, gemini_model, logger):
     prompt = f"""
         Format the following banking information response in { language } language in a helpful and conversational manner.
         Make sure the response is accurate, clear, and maintains the original information.
-        
+        Critical instructions,responses should be solely based on functions output (raw response give to you). Do no add anything else deviating from the original content of raw response.
         Original query: { user_query }
         Raw response: { raw_response }
         

@@ -1,13 +1,13 @@
 // routes/gemini.js
-// Express routes for simple Gemini chat (text to text only)
+// Express routes for restricted Gemini usage - ONLY for intent understanding and response formatting
 
 const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
 
 // Start the persistent Python bridge (reuse the same one from banking.js or create new)
-console.log("Starting Gemini Python bridge...");
-const pyProcess = spawn('../../BoM/venv/Scripts/python.exe', ['./controller/Python/py_bridge.py']);
+console.log("Starting Gemini Python bridge (restricted mode - intent understanding & response formatting only)...");
+const pyProcess = spawn('python', ['./controller/Python/py_bridge.py']);
 
 // Log any Python-side errors
 pyProcess.stderr.on('data', (data) => {
@@ -49,7 +49,7 @@ function callPythonFunction(func, args = []) {
     });
 }
 
-// POST /api/gemini/chat - Simple text chat with Gemini
+// POST /api/gemini/chat - Banking chat with restricted Gemini (intent understanding + response formatting only)
 router.post('/chat', async (req, res) => {
     const { message, session_id } = req.body;
 
@@ -66,72 +66,15 @@ router.post('/chat', async (req, res) => {
     }
 });
 
-// POST /api/gemini/chat-context - Chat with conversation context
-router.post('/chat-context', async (req, res) => {
-    const { message, session_id } = req.body;
-
-    if (!message || typeof message !== 'string' || message.trim() === '') {
-        return res.status(400).json({ error: 'Message is required and cannot be empty' });
-    }
-
-    if (!session_id) {
-        return res.status(400).json({ error: 'Session ID is required for contextual chat' });
-    }
-
-    try {
-        const result = await callPythonFunction('contextual_gemini_chat', [message.trim(), session_id]);
-        res.json(result);
-    } catch (err) {
-        console.error("Error in /gemini/chat-context:", err);
-        res.status(500).json({ error: err.toString() });
-    }
-});
-
-// GET /api/gemini/conversation/:session_id - Get conversation history
-router.get('/conversation/:session_id', async (req, res) => {
-    const { session_id } = req.params;
-
-    if (!session_id) {
-        return res.status(400).json({ error: 'Session ID is required' });
-    }
-
-    try {
-        const result = await callPythonFunction('get_gemini_conversation', [session_id]);
-        res.json(result);
-    } catch (err) {
-        console.error("Error in /gemini/conversation:", err);
-        res.status(500).json({ error: err.toString() });
-    }
-});
-
-// DELETE /api/gemini/conversation/:session_id - Clear conversation history
-router.delete('/conversation/:session_id', async (req, res) => {
-    const { session_id } = req.params;
-
-    if (!session_id) {
-        return res.status(400).json({ error: 'Session ID is required' });
-    }
-
-    try {
-        const result = await callPythonFunction('clear_gemini_conversation', [session_id]);
-        res.json(result);
-    } catch (err) {
-        console.error("Error in /gemini/clear-conversation:", err);
-        res.status(500).json({ error: err.toString() });
-    }
-});
-
-// GET /api/gemini/health - Health check for Gemini service
+// GET /api/gemini/health - Health check for restricted Gemini service
 router.get('/health', (req, res) => {
     res.json({
         status: 'healthy',
-        service: 'Gemini Chat API',
+        service: 'Gemini Chat API - Restricted Mode',
+        restriction: 'Gemini usage limited to: 1) Intent Understanding, 2) Response Formatting only',
         timestamp: new Date().toISOString(),
         endpoints: [
-            'POST /api/gemini/chat',
-            'POST /api/gemini/chat-context',
-            'GET /api/gemini/conversation/:session_id',
-            'DELETE /api/gemini/conversation/:session_id'
+            'POST /api/gemini/chat'
         ]
     });
 });

@@ -18,21 +18,21 @@ sys.path.insert(0, server_dir)
 from controller.Python.banking_functions import *
 from controller.Python.understand_intent import understand_intent, format_response
 from controller.Python.text_to_speech import text_to_speech as tts_func
-from controller.Python.gemini_chat import simple_gemini_chat, contextual_gemini_chat, get_gemini_conversation, clear_gemini_conversation
+from controller.Python.gemini_chat import simple_gemini_chat
 
 # ------------------ Load ASR Model Once ------------------
 
-# print("Loading ASR model... this may take ~30s the first time", flush=True)
-# ASR_MODEL = AutoModel.from_pretrained(
-#     "ai4bharat/indic-conformer-600m-multilingual",
-#     trust_remote_code=True
-# )
-# print("✅ ASR model loaded and ready", flush=True)
+print("Loading ASR model... this may take ~30s the first time", flush=True)
+ASR_MODEL = AutoModel.from_pretrained(
+    "ai4bharat/indic-conformer-600m-multilingual",
+    trust_remote_code=True
+)
+print("✅ ASR model loaded and ready", flush=True)
 
-# ASR_LANG_MAP = {
-#     'hi': 'hi', 'en': 'en', 'mr': 'mr', 'ta': 'ta', 'te': 'te',
-#     'gu': 'gu', 'kn': 'kn', 'ml': 'ml', 'bn': 'bn'
-# }
+ASR_LANG_MAP = {
+    'hi': 'hi', 'en': 'en', 'mr': 'mr', 'ta': 'ta', 'te': 'te',
+    'gu': 'gu', 'kn': 'kn', 'ml': 'ml', 'bn': 'bn'
+}
 
 def speech_to_text(audio_file_path, language_code):
     """Convert speech from audio file to text using preloaded ASR model."""
@@ -161,13 +161,9 @@ if __name__ == '__main__':
             elif func == 'speech_to_text':
                 print(speech_to_text(*args))
             elif func == 'simple_gemini_chat':
-                print(simple_gemini_chat(*args))
-            elif func == 'contextual_gemini_chat':
-                print(contextual_gemini_chat(*args))
-            elif func == 'get_gemini_conversation':
-                print(get_gemini_conversation(*args))
-            elif func == 'clear_gemini_conversation':
-                print(clear_gemini_conversation(*args))
+                result = simple_gemini_chat(*args)
+                print(result, flush=True)
+                sys.stdout.flush()
             else:
                 print(json.dumps({'error': f'Unknown function: {func}'}))
                 sys.exit(1)
@@ -205,12 +201,6 @@ if __name__ == '__main__':
                         result = json.loads(get_audio_info(*args))
                     elif func_name == "simple_gemini_chat":
                         result = json.loads(simple_gemini_chat(*args))
-                    elif func_name == "contextual_gemini_chat":
-                        result = json.loads(contextual_gemini_chat(*args))
-                    elif func_name == "get_gemini_conversation":
-                        result = json.loads(get_gemini_conversation(*args))
-                    elif func_name == "clear_gemini_conversation":
-                        result = json.loads(clear_gemini_conversation(*args))
                     else:
                         result = {"error": f"Unknown function: {func_name}"}
 

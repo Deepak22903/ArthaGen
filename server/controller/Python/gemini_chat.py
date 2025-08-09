@@ -1,14 +1,20 @@
 # gemini_chat.py
-# Simple Gemini chat without STT/TTS - just text to text
+# Restricted Gemini usage - only for intent understanding and response formatting
 
 import google.generativeai as genai
 import json
 import logging
+import sys
+import os
 from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Import banking functions at module level
+from banking_functions import *
+from understand_intent import understand_intent, format_response
 
 class GeminiChat:
     def __init__(self):
@@ -23,90 +29,24 @@ class GeminiChat:
         self.conversations = {}
     
     def chat_with_gemini(self, user_message, session_id=None, system_prompt=None):
-        """Simple text chat with Gemini"""
-        try:
-            # Default system prompt for banking context
-            if system_prompt is None:
-                system_prompt = """You are a helpful banking assistant for Bank of Maharashtra. 
-                You can help with general banking queries, provide information about banking services, 
-                and assist customers with their questions. Be friendly, helpful, and professional."""
-            
-            # Create full prompt with context
-            full_prompt = f"{system_prompt}\n\nUser: {user_message}\nAssistant:"
-            
-            # Get response from Gemini
-            response = self.gemini_model.generate_content(full_prompt)
-            ai_response = response.text.strip()
-            
-            # Save conversation if session_id provided
-            if session_id:
-                self.save_conversation(session_id, user_message, ai_response)
-            
-            return {
-                'response': ai_response,
-                'user_message': user_message,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'success'
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in Gemini chat: {e}")
-            return {
-                'error': str(e),
-                'user_message': user_message,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'error'
-            }
+        """DEPRECATED - Gemini is restricted to intent understanding and response formatting only"""
+        return {
+            'response': "No. I can only help with understanding intent and formatting banking responses.",
+            'user_message': user_message,
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'restricted'
+        }
     
     def chat_with_context(self, user_message, session_id):
-        """Chat with conversation history context"""
-        try:
-            # Get conversation history
-            conversation_history = self.get_conversation_history(session_id)
-            
-            # Build context from history
-            context = "Previous conversation:\n"
-            for entry in conversation_history[-5:]:  # Last 5 messages for context
-                context += f"User: {entry['user_input']}\nAssistant: {entry['response']}\n"
-            
-            # System prompt with context
-            system_prompt = f"""You are a helpful banking assistant for Bank of Maharashtra. 
-            You can help with general banking queries, provide information about banking services, 
-            and assist customers with their questions. Be friendly, helpful, and professional.
-            
-            {context}
-            
-            Current conversation:"""
-            
-            full_prompt = f"{system_prompt}\nUser: {user_message}\nAssistant:"
-            
-            # Get response from Gemini
-            response = self.gemini_model.generate_content(full_prompt)
-            ai_response = response.text.strip()
-            
-            # Save conversation
-            self.save_conversation(session_id, user_message, ai_response)
-            
-            return {
-                'response': ai_response,
-                'user_message': user_message,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'success',
-                'context_used': True
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in contextual chat: {e}")
-            return {
-                'error': str(e),
-                'user_message': user_message,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'error'
-            }
+        """DEPRECATED - Gemini is restricted to intent understanding and response formatting only"""
+        return {
+            'response': "No. I can only help with understanding intent and formatting banking responses.",
+            'user_message': user_message,
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'restricted'
+        }
     
     def save_conversation(self, session_id, user_input, response):
         """Save conversation to memory (in production, use proper database)"""
@@ -132,29 +72,71 @@ class GeminiChat:
             return {'message': 'Conversation cleared', 'session_id': session_id}
         return {'message': 'Session not found', 'session_id': session_id}
 
-# Initialize Gemini chat instance
+# Initialize Gemini chat instance (only for conversation history storage)
 gemini_chat = GeminiChat()
 
+def intelligent_banking_chat(message, session_id=None):
+    """Intelligent chat that uses Gemini ONLY for intent understanding and response formatting"""
+    try:
+        # Banking functions dictionary
+        banking_functions_dict = {
+            "check_balance": check_balance,
+            "transfer_money": transfer_money,
+            "loan_eligibility": loan_eligibility,
+            "link_aadhaar": link_aadhaar,
+            "activate_mobile_banking": activate_mobile_banking,
+            "open_fd_rd": open_fd_rd,
+            "card_services": card_services,
+            "find_branch_atm": find_branch_atm,
+            "mini_statement": mini_statement,
+            "fraud_prevention": fraud_prevention,
+            "rekyc_process": rekyc_process,
+            "reset_mpin": reset_mpin,
+            "general_inquiry": general_inquiry
+        }
+        
+        # Configure Gemini (only for the two allowed tasks)
+        genai.configure(api_key="AIzaSyCm4yCgVe0kswQvypeoMa3cEh3MX6mWRa0")
+        gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+        
+        # TASK 1: Understand intent using Gemini (ONLY allowed task #1)
+        intent = understand_intent(message, 'en', gemini_model, banking_functions_dict, logger)
+        logger.info(f"🔍 Intent recognized: {intent}")
+        print(f"🔍 Intent recognized: {intent}", flush=True)
+        # Get raw response from appropriate banking function (no Gemini involved)
+        if intent in banking_functions_dict:
+            raw_response = banking_functions_dict[intent](message)
+        else:
+            raw_response = general_inquiry(message)
+        
+        # TASK 2: Format response using Gemini (ONLY allowed task #2)
+        formatted_response = format_response(raw_response, 'en', message, gemini_model, logger)
+        
+        # Save conversation if session_id provided
+        if session_id:
+            gemini_chat.save_conversation(session_id, message, formatted_response)
+        
+        return {
+            'response': formatted_response,
+            'user_message': message,
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'success',
+            'is_banking': True,
+            'intent': intent
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in intelligent banking chat: {e}")
+        return {
+            'error': str(e),
+            'user_message': message,
+            'session_id': session_id,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'error'
+        }
+
 def simple_gemini_chat(message, session_id=None):
-    """Simple function to chat with Gemini - for use in py_bridge.py"""
-    result = gemini_chat.chat_with_gemini(message, session_id)
-    return json.dumps(result)
-
-def contextual_gemini_chat(message, session_id):
-    """Chat with conversation context - for use in py_bridge.py"""
-    result = gemini_chat.chat_with_context(message, session_id)
-    return json.dumps(result)
-
-def get_gemini_conversation(session_id):
-    """Get conversation history - for use in py_bridge.py"""
-    history = gemini_chat.get_conversation_history(session_id)
-    return json.dumps({
-        'session_id': session_id,
-        'conversation': history,
-        'total_messages': len(history)
-    })
-
-def clear_gemini_conversation(session_id):
-    """Clear conversation history - for use in py_bridge.py"""
-    result = gemini_chat.clear_conversation(session_id)
+    """Simple function to chat with banking functions - Gemini restricted to intent & formatting only"""
+    result = intelligent_banking_chat(message, session_id)
     return json.dumps(result)
