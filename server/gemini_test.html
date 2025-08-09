@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Chat Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .chat-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            background-color: #fafafa;
+            border-radius: 5px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            text-align: right;
+        }
+        .ai-message {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .session-info {
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h1>🤖 Gemini Chat Test</h1>
+        
+        <div class="session-info">
+            <strong>Session ID:</strong> <span id="sessionId"></span>
+            <button onclick="generateNewSession()" style="margin-left: 10px; padding: 5px 10px; font-size: 12px;">New Session</button>
+        </div>
+
+        <div class="controls">
+            <label>
+                <input type="radio" name="chatMode" value="simple" checked> Simple Chat
+            </label>
+            <label style="margin-left: 15px;">
+                <input type="radio" name="chatMode" value="context"> Contextual Chat
+            </label>
+            <button onclick="clearConversation()" style="margin-left: 20px; padding: 5px 10px; font-size: 12px;">Clear History</button>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+        
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleEnterKey(event)">
+            <button onclick="sendMessage()" id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = generateSessionId();
+        document.getElementById('sessionId').textContent = sessionId;
+
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        }
+
+        function generateNewSession() {
+            sessionId = generateSessionId();
+            document.getElementById('sessionId').textContent = sessionId;
+            document.getElementById('chatMessages').innerHTML = '';
+            addMessage('system', 'New session started!');
+        }
+
+        function addMessage(type, content) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            if (type === 'error') {
+                messageDiv.className = 'message error';
+            }
+            
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            // Add user message to chat
+            addMessage('user', message);
+            input.value = '';
+            
+            try {
+                const chatMode = document.querySelector('input[name="chatMode"]:checked').value;
+                const endpoint = chatMode === 'simple' ? '/api/gemini/chat' : '/api/gemini/chat-context';
+                
+                const response = await fetch(`http://localhost:5000${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    addMessage('error', `Error: ${result.error}`);
+                } else {
+                    addMessage('ai', result.response);
+                }
+                
+            } catch (error) {
+                addMessage('error', `Connection error: ${error.message}`);
+                console.error('Error:', error);
+            }
+            
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+        }
+
+        async function clearConversation() {
+            try {
+                const response = await fetch(`http://localhost:5000/api/gemini/conversation/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                document.getElementById('chatMessages').innerHTML = '';
+                addMessage('system', 'Conversation history cleared!');
+                
+            } catch (error) {
+                addMessage('error', `Error clearing conversation: ${error.message}`);
+            }
+        }
+
+        function handleEnterKey(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Add welcome message
+        addMessage('system', 'Welcome! Start chatting with Gemini. Choose simple chat for basic responses or contextual chat to maintain conversation history.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+require('dotenv').config();
+const express = require('express');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+const cors = require('cors');
+const app = express();
+const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
+const morgan = require('morgan');
+const bankingRouter = require('./routes/banking');
+const geminiRouter = require('./routes/gemini');
+const authRouter = require('./routes/authRoutes');
+const sessionRouter = require('./routes/sessionRoutes');
+const unansweredQuestion = require('./routes/unansweredQuestionsRoutes')
+// You can configure it further if needed, e.g., app.use(cors({ origin: 'http://example.com' }));
+app.use(cors({
+    origin: 'http://localhost:5173', // Replace with your frontend URL, no trailing slash
+    credentials: true
+}));
+app.use(express.json());                         // 👈 Handles JSON req bodies
+app.use(express.urlencoded({ extended: true })); // 👈 Handles form data
+app.use(cookieParser());
+
+if (process.env.NODE_ENV === "development") {
+    app.use(morgan("dev"));
+}
+app.use((req, res, next) => {
+    console.log("HI i am middleware 😀");
+    next();
+});
+
+// For those routes:
+app.use('/api', bankingRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/session', sessionRouter);
+app.use('/api/unanswered-questions', unansweredQuestion);
+app.use('/api/gemini', geminiRouter);
+app.post('/api/voice-chat', upload.single('audio'), bankingRouter);
+app.post('/api/convert-audio', upload.single('audio'), bankingRouter);
+app.post('/api/audio-info', upload.single('audio'), bankingRouter);
+// app.use("/api/v1/temp", tempRouter);
+
+app.get("/", (request, response) => {
+    response.json({
+        message: "server running fine",
+    });
+});
+
+const PORT = process.env.PORT || 8001;
+mongoose
+    .connect(process.env.MONGO_URL)
+    .then(() => {
+        console.log("connection success👌");
+    })
+    .catch((error) =>
+        console.log(`${error} ${process.env.PORT} did not connect`)
+    );
+
+app.listen(PORT, () => {
+    console.log(`Server Port: ${PORT}`);
+});
