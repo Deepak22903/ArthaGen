@@ -12,6 +12,10 @@ const fs = require('fs');
 // Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
+// Request debouncing for TTS to prevent multiple calls
+const ttsRequestCache = new Map();
+const TTS_DEBOUNCE_TIME = 1000; // 1 second debounce
+
 // Start the persistent Python bridge
 console.log("Starting persistent Python bridge...");
 const pyProcess = spawn('python', ['./controller/Python/py_bridge.py']);
@@ -74,7 +78,7 @@ router.post('/chat', async (req, res) => {
     }
 });
 
-// POST /api/text-to-speech - convert text to audio
+// POST /api/text-to-speech - convert text to audio and return file directly
 router.post('/text-to-speech', async (req, res) => {
     const { text, language } = req.body;
 
@@ -84,7 +88,42 @@ router.post('/text-to-speech', async (req, res) => {
 
     try {
         const result = await callPythonFunction('text_to_speech', [text, language]);
-        res.json(result);
+
+        if (result.success && result.audio_file_path) {
+            // Send the audio file directly
+            const fs = require('fs');
+            const path = require('path');
+
+            const audioPath = path.resolve(result.audio_file_path);
+
+            // Check if file exists
+            if (fs.existsSync(audioPath)) {
+                res.setHeader('Content-Type', 'audio/wav');
+                res.setHeader('Content-Disposition', 'inline');
+                res.setHeader('Accept-Ranges', 'bytes');
+
+                // Stream the audio file
+                const audioStream = fs.createReadStream(audioPath);
+                audioStream.pipe(res);
+
+                // Optional: Clean up the file after sending
+                audioStream.on('end', () => {
+                    setTimeout(() => {
+                        try {
+                            fs.unlinkSync(audioPath);
+                            console.log(`Cleaned up audio file: ${audioPath}`);
+                        } catch (cleanupErr) {
+                            console.log(`Could not clean up audio file: ${cleanupErr.message}`);
+                        }
+                    }, 5000); // Delete after 5 seconds
+                });
+
+            } else {
+                res.status(500).json({ error: 'Audio file not found' });
+            }
+        } else {
+            res.status(500).json({ error: result.error || 'TTS generation failed' });
+        }
     } catch (err) {
         console.error("Error in /text-to-speech:", err);
         res.status(500).json({ error: err.toString() });

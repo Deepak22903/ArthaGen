@@ -7,16 +7,16 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
-const bankingRouter = require('./routes/banking');
+const conversionRouter = require('./routes/conversionRoutes');
 const geminiRouter = require('./routes/gemini');
 const authRouter = require('./routes/authRoutes');
 const sessionRouter = require('./routes/sessionRoutes');
-const adminRouter = require('./routes/adminRoutes')
+const adminRouter = require('./routes/adminRoutes');
 // You can configure it further if needed, e.g., app.use(cors({ origin: 'http://example.com' }));
 app.use(cors({
     origin: true, // Allow all origins in development
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 app.use(express.json());                         // 👈 Handles JSON req bodies
@@ -35,14 +35,14 @@ app.use((req, res, next) => {
 });
 
 // For those routes:
-app.use('/api', bankingRouter);
+app.use('/api', conversionRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/session', sessionRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/gemini', geminiRouter);
-app.post('/api/voice-chat', upload.single('audio'), bankingRouter);
-app.post('/api/convert-audio', upload.single('audio'), bankingRouter);
-app.post('/api/audio-info', upload.single('audio'), bankingRouter);
+app.post('/api/voice-chat', upload.single('audio'), conversionRouter);
+app.post('/api/convert-audio', upload.single('audio'), conversionRouter);
+app.post('/api/audio-info', upload.single('audio'), conversionRouter);
 // app.use("/api/v1/temp", tempRouter);
 
 app.get("/", (request, response) => {

@@ -5,7 +5,8 @@ const messageSchema = new mongoose.Schema(
         question: { type: String, required: true },
         answer: { type: String, required: true },
         feedback: { type: Number, default: 0, min: -1, max: 1 },
-        timestamp: { type: Date, default: Date.now }
+        timestamp: { type: Date, default: Date.now },
+        intent: { type: String, default: "general_inquiry" }
     },
     { _id: false }
 );
@@ -27,6 +28,7 @@ const sessionSchema = new mongoose.Schema(
             },
             required: false // Location is optional
         },
+        device: { type: String, default: "unknown" },
         messages: [messageSchema],
         sessionFeedbackRating: { type: Number, min: 1, max: 5 }, // 🌟 Added
         sessionFeedbackText: { type: String, trim: true },        // 🌟 Added

@@ -136,12 +136,9 @@ def text_to_speech(text, language_code=None):
         client = SarvamAI(api_subscription_key="sk_5ar258ri_HZlxzt4bh8Pq7Z9ISQ7CtKhO")
         
         # Log the input text for debugging
-        print(f"TTS Input - Full Text Length: {len(text)} characters", flush=True)
-        print(f"TTS Input - Language Code: {language_code}", flush=True)
-        print(f"TTS Input - Full Text Content:", flush=True)
-        print(f"------- START OF FULL INPUT TEXT -------", flush=True)
-        print(text, flush=True)
-        print(f"------- END OF FULL INPUT TEXT -------", flush=True)
+        print(f"TTS Input - Text length: {len(text)} characters", flush=True)
+        print(f"TTS Input - First 100 chars: {text[:100]}...", flush=True)
+        print(f"TTS Input - Language code: {language_code}", flush=True)
 
         # Comprehensive language mapping for SarvamAI
         sarvam_lang_map = {
@@ -182,39 +179,25 @@ def text_to_speech(text, language_code=None):
         target_lang = None
         
         for i, chunk in enumerate(text_chunks):
-            print(f"\nTTS: Processing chunk {i+1}/{len(text_chunks)}", flush=True)
-            print(f"TTS: Chunk {i+1} length: {len(chunk)} characters", flush=True)
-            print(f"------- START OF CHUNK {i+1} BEING SENT TO SARVAM -------", flush=True)
-            print(chunk, flush=True)
-            print(f"------- END OF CHUNK {i+1} BEING SENT TO SARVAM -------", flush=True)
-            
+            print(f"TTS: Processing chunk {i+1}/{len(text_chunks)}: {chunk[:50]}...", flush=True)
             processed_length += len(chunk)
             
             # Determine the target language for this chunk
             if language_code:
                 target_lang = sarvam_lang_map.get(language_code.lower(), None)
-                print(f"TTS: Using provided language code '{language_code}' -> '{target_lang}'", flush=True)
             else:
                 detected_lang = detect_language(chunk)
                 target_lang = sarvam_lang_map.get(detected_lang, None)
-                print(f"TTS: Auto-detected language '{detected_lang}' -> '{target_lang}'", flush=True)
             
             if not target_lang:
                 target_lang = 'en-IN'
-                print(f"TTS: No valid language found, defaulting to 'en-IN'", flush=True)
             
             # Create temporary filename for this chunk
             temp_filename = f"audio_response/temp_chunk_{i}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
             
             try:
                 # Convert chunk to speech
-                print(f"TTS: Sending to SarvamAI API with parameters:", flush=True)
-                print(f"  - target_language_code: {target_lang}", flush=True)
-                print(f"  - text: '{chunk[:100]}...' (length: {len(chunk)})", flush=True)
-                print(f"  - model: bulbul:v2", flush=True)
-                print(f"  - speaker: arya", flush=True)
-                print(f"  - pace: 1", flush=True)
-                
+                print(f"TTS: Converting chunk {i+1} to speech using {target_lang}", flush=True)
                 audio = client.text_to_speech.convert(
                     target_language_code=target_lang,
                     text=chunk,
@@ -226,12 +209,10 @@ def text_to_speech(text, language_code=None):
                 # Save chunk audio
                 save(audio, temp_filename)
                 audio_files.append(temp_filename)
-                print(f"TTS: ✅ Chunk {i+1} converted successfully -> {temp_filename}", flush=True)
+                print(f"TTS: Chunk {i+1} converted successfully", flush=True)
                 
             except Exception as chunk_error:
-                print(f"TTS: ❌ Error processing chunk {i+1}: {chunk_error}", flush=True)
-                import traceback
-                print(f"TTS: Error traceback for chunk {i+1}: {traceback.format_exc()}", flush=True)
+                print(f"TTS: Error processing chunk {i+1}: {chunk_error}", flush=True)
                 continue
         
         if not audio_files:

@@ -19,7 +19,7 @@ from understand_intent import understand_intent, format_response
 class GeminiChat:
     def __init__(self):
         # Configuration
-        self.GEMINI_API_KEY = "AIzaSyCm4yCgVe0kswQvypeoMa3cEh3MX6mWRa0"  # Your API key
+        self.GEMINI_API_KEY = "AIzaSyDEoIpbrnrgiwWiG1sC5wrX2fSyLEtuYhE"  # Your API key
         
         # Initialize Gemini
         genai.configure(api_key=self.GEMINI_API_KEY)
@@ -106,7 +106,7 @@ def intelligent_banking_chat(message, session_id=None, language=None):
         }
         
         # Configure Gemini (only for the two allowed tasks)
-        genai.configure(api_key="AIzaSyCm4yCgVe0kswQvypeoMa3cEh3MX6mWRa0")
+        genai.configure(api_key="AIzaSyDEoIpbrnrgiwWiG1sC5wrX2fSyLEtuYhE")
         gemini_model = genai.GenerativeModel('gemini-2.0-flash')
         
         # TASK 1: Understand intent using Gemini (ONLY allowed task #1)

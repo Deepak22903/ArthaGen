@@ -23,12 +23,14 @@ from controller.Python.gemini_chat import simple_gemini_chat
 
 # ------------------ Load ASR Model Once ------------------
 
-print("Loading ASR model... this may take ~30s the first time", flush=True)
-ASR_MODEL = AutoModel.from_pretrained(
-    "ai4bharat/indic-conformer-600m-multilingual",
-    trust_remote_code=True
-)
-print("✅ ASR model loaded and ready", flush=True)
+# print("Loading ASR model... this may take ~30s the first time", flush=True)
+# ASR_MODEL = AutoModel.from_pretrained(
+#     "ai4bharat/indic-conformer-600m-multilingual",
+#     trust_remote_code=True
+# )
+# print("✅ ASR model loaded and ready", flush=True)
+
+# print("✅ TTS ready (using SarvamAI)", flush=True)
 
 ASR_LANG_MAP = {
     'hi': 'hi', 'en': 'en', 'mr': 'mr', 'ta': 'ta', 'te': 'te',
@@ -148,11 +150,11 @@ def process_query(message, language, session_id=None):
 
 
 def text_to_speech(text, language):
-    audio_base64 = tts_func(text, language)
-    if audio_base64:
-        return json.dumps({'audio_base64': audio_base64, 'language': language, 'text': text})
+    result = tts_func(text, language)
+    if result.get('success'):
+        return json.dumps(result)
     else:
-        return json.dumps({'error': 'Text to speech failed', 'language': language, 'text': text})
+        return json.dumps({'error': result.get('error', 'Text to speech failed'), 'language': language, 'text': text})
 
 def get_conversation(session_id):
     # Dummy implementation

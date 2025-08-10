@@ -74,10 +74,12 @@ exports.updateMessageFeedback = async (req, res) => {
     try {
         let { sessionId, messageIndex, feedback } = req.body;
 
+        console.log("Message Feedback Request:", { sessionId, messageIndex, feedback });
+
         if (!sessionId || feedback === undefined) {
             return res.status(400).json({
                 status: "fail",
-                message: "Session ID, message index, and feedback are required"
+                message: "Session ID and feedback are required"
             });
         }
 
@@ -89,9 +91,6 @@ exports.updateMessageFeedback = async (req, res) => {
         }
 
         const session = await Session.findById(sessionId);
-        if (messageIndex === undefined) {
-            messageIndex = session.messages.length - 1;
-        }
         if (!session) {
             return res.status(404).json({
                 status: "fail",
@@ -99,23 +98,23 @@ exports.updateMessageFeedback = async (req, res) => {
             });
         }
 
+        // If messageIndex is not provided, use the last message
+        if (messageIndex === undefined || messageIndex === null) {
+            messageIndex = session.messages.length - 1;
+        }
+
         if (messageIndex < 0 || messageIndex >= session.messages.length) {
             return res.status(404).json({
                 status: "fail",
-                message: "Message not found"
+                message: `Message not found. Index: ${messageIndex}, Total messages: ${session.messages.length}`
             });
         }
 
-        const lastIndex = session.messages.length - 1;
-        if (messageIndex !== lastIndex) {
-            return res.status(400).json({
-                status: "fail",
-                message: "You can only give feedback for the latest answered message"
-            });
-        }
-
+        // Allow feedback on any message, not just the latest
         session.messages[messageIndex].feedback = feedback;
         await session.save();
+
+        console.log(`Message feedback saved: messageIndex=${messageIndex}, feedback=${feedback}`);
 
         res.status(200).json({
             status: "success",
@@ -123,6 +122,7 @@ exports.updateMessageFeedback = async (req, res) => {
             session
         });
     } catch (err) {
+        console.error("Message feedback error:", err);
         res.status(500).json({
             status: "error",
             message: err.message
@@ -136,10 +136,19 @@ exports.updateSessionFeedback = async (req, res) => {
     try {
         const { sessionId, sessionFeedbackRating, sessionFeedbackText } = req.body;
 
-        if (!sessionId || !sessionFeedbackRating) {
+        console.log("Session Feedback Request:", { sessionId, sessionFeedbackRating, sessionFeedbackText });
+
+        if (!sessionId) {
             return res.status(400).json({
                 status: "fail",
-                message: "Session ID and sessionFeedbackRating are required"
+                message: "Session ID is required"
+            });
+        }
+
+        if (!sessionFeedbackRating) {
+            return res.status(400).json({
+                status: "fail",
+                message: "Session feedback rating is required"
             });
         }
 
@@ -159,11 +168,13 @@ exports.updateSessionFeedback = async (req, res) => {
         }
 
         session.sessionFeedbackRating = sessionFeedbackRating;
-        if (sessionFeedbackText) {
-            session.sessionFeedbackText = sessionFeedbackText;
+        if (sessionFeedbackText && sessionFeedbackText.trim()) {
+            session.sessionFeedbackText = sessionFeedbackText.trim();
         }
 
         await session.save();
+
+        console.log("Session feedback saved successfully");
 
         res.status(200).json({
             status: "success",
@@ -171,6 +182,7 @@ exports.updateSessionFeedback = async (req, res) => {
             session
         });
     } catch (err) {
+        console.error("Session feedback error:", err);
         res.status(500).json({
             status: "error",
             message: err.message
