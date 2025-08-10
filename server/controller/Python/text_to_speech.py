@@ -5,6 +5,10 @@ from sarvamai.play import save
 import re
 import wave
 import struct
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 try:
     from langdetect import detect
@@ -133,7 +137,11 @@ def text_to_speech(text, language_code=None):
         os.makedirs("audio_response", exist_ok=True)
 
         # Initialize SarvamAI client
-        client = SarvamAI(api_subscription_key="sk_5ar258ri_HZlxzt4bh8Pq7Z9ISQ7CtKhO")
+        sarvam_api_key = os.getenv('SARVAMAI_API_KEY')
+        if not sarvam_api_key:
+            raise ValueError("SARVAMAI_API_KEY not found in environment variables")
+        
+        client = SarvamAI(api_subscription_key=sarvam_api_key)
         
         # Log the input text for debugging
         print(f"TTS Input - Full Text Length: {len(text)} characters", flush=True)
@@ -220,7 +228,7 @@ def text_to_speech(text, language_code=None):
                     text=chunk,
                     model="bulbul:v2",
                     speaker="arya",
-                    pace=1.5
+                    pace=1
                 )
                 
                 # Save chunk audio

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Send, MessageCircle, X, Bot, Minimize2, Maximize2, Mic, MicOff, Phone, Shield, CheckCircle, ThumbsUp, ThumbsDown, Star, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack } from "lucide-react"
+import { Send, MessageCircle, X, Bot, Minimize2, Maximize2, Mic, MicOff, Phone, Shield, CheckCircle, ThumbsUp, ThumbsDown, Star, Volume2, VolumeX, Play, Pause, SkipForward, SkipBack, ChevronDown, ChevronUp } from "lucide-react"
 
 const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -35,6 +35,7 @@ const ChatbotWidget = () => {
   const [sessionRating, setSessionRating] = useState<number>(0)
   const [sessionFeedbackText, setSessionFeedbackText] = useState<string>("")
   const [playingAudio, setPlayingAudio] = useState<number | null>(null)
+  const [isQuickServicesExpanded, setIsQuickServicesExpanded] = useState(false)
   
   // Audio management state
   const [audioCache, setAudioCache] = useState<Map<string, string>>(new Map())
@@ -291,10 +292,42 @@ const ChatbotWidget = () => {
     }
   }
 
+  // Function to save unanswered question
+  const saveUnansweredQuestion = async (question: string, mobileNo?: string) => {
+    try {
+      console.log("Frontend: Saving unanswered question:", question)
+      
+      const response = await fetch("http://localhost:8000/api/admin/unanswered", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mobileNo: mobileNo || phoneNumber || "unknown",
+          question: question,
+          notifyUser: true,
+          sessionId: sessionId
+        }),
+      })
+
+      if (response.status === 201) {
+        console.log("Frontend: Successfully saved unanswered question")
+        return { success: true }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Frontend: Failed to save unanswered question:", errorData)
+        return { success: false, error: errorData }
+      }
+    } catch (error) {
+      console.error("Frontend: Error saving unanswered question:", error)
+      return { success: false, error }
+    }
+  }
+
   // Handle authenticated chat using existing session
   const handleAuthenticatedChat = async (messageText: string) => {
     try {
-      // Call Gemini API for banking response
+      // Call chat API for banking response
       const geminiResponse = await fetch("http://localhost:8000/api/gemini/chat", {
         method: "POST",
         headers: {
@@ -310,7 +343,43 @@ const ChatbotWidget = () => {
       if (geminiResponse.ok) {
         const geminiResult = await geminiResponse.json()
         
-        // Add message to session
+        // Check if intent is general_inquiry and save as unanswered question
+        if (geminiResult.intent === "general_inquiry") {
+          console.log("Frontend: Detected general_inquiry intent, saving as unanswered question")
+          
+          const saveResult = await saveUnansweredQuestion(messageText, phoneNumber)
+          
+          if (saveResult.success) {
+            // Show a message indicating the question has been saved for expert review
+            const botResponse = {
+              id: Date.now(),
+              text: "Thank you for your question. Since this requires detailed information, I've forwarded it to our expert team for a comprehensive answer. You'll receive a response soon, or you can contact our customer care at 1800-233-4526 for immediate assistance.",
+              sender: "bot",
+              timestamp: new Date().toLocaleTimeString(),
+            }
+            setMessages((prev) => [...prev, botResponse])
+          } else {
+            // Fallback message if saving fails
+            const botResponse = {
+              id: Date.now(),
+              text: "Thank you for your question. For detailed information about this topic, please contact our customer care at 1800-233-4526 where our experts can assist you better.",
+              sender: "bot",
+              timestamp: new Date().toLocaleTimeString(),
+            }
+            setMessages((prev) => [...prev, botResponse])
+          }
+        } else {
+          // Normal banking response
+          const botResponse = {
+            id: Date.now(),
+            text: cleanResponseText(geminiResult.response || geminiResult.error || "I couldn't process your request at this time."),
+            sender: "bot",
+            timestamp: new Date().toLocaleTimeString(),
+          }
+          setMessages((prev) => [...prev, botResponse])
+        }
+        
+        // Add message to session regardless of intent
         if (sessionId) {
           await fetch("http://localhost:8000/api/session/message", {
             method: "POST",
@@ -320,19 +389,10 @@ const ChatbotWidget = () => {
             body: JSON.stringify({
               sessionId: sessionId,
               question: messageText,
-              answer: geminiResult.response || "I couldn't process your request."
+              answer: geminiResult.response || "Question saved for expert review."
             }),
           })
         }
-
-        // Show bot response
-        const botResponse = {
-          id: Date.now(),
-          text: cleanResponseText(geminiResult.response || geminiResult.error || "I couldn't process your request at this time."),
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
-        }
-        setMessages((prev) => [...prev, botResponse])
 
       } else {
         throw new Error("Banking service temporarily unavailable")
@@ -356,7 +416,7 @@ const ChatbotWidget = () => {
     console.warn("sendMessageToChatbot is deprecated")
   }
 
-  // New function to send message to Gemini API
+  // Function to send message to chat API
   const sendMessageToGemini = async (messageText: string) => {
     try {
       const response = await fetch("http://localhost:8000/api/gemini/chat", {
@@ -374,35 +434,62 @@ const ChatbotWidget = () => {
       if (response.ok) {
         const result = await response.json()
 
-        // Add intent recognition info if available
-        if (result.intent) {
-          const intentMessage = {
-            id: Date.now() + 1,
-            text: `Intent: ${result.intent}`,
-            sender: "system",
-            timestamp: new Date().toLocaleTimeString(),
-            type: "intent",
+        // Check if intent is general_inquiry and save as unanswered question
+        if (result.intent === "general_inquiry") {
+          console.log("Frontend: Detected general_inquiry intent in non-auth chat, saving as unanswered question")
+          
+          const saveResult = await saveUnansweredQuestion(messageText, "guest_user")
+          
+          if (saveResult.success) {
+            // Show a message indicating the question has been saved for expert review
+            const botResponse = {
+              id: Date.now() + 2,
+              text: "Thank you for your question. Since this requires detailed information, I've forwarded it to our expert team for a comprehensive answer. You can also contact our customer care at 1800-233-4526 for immediate assistance.",
+              sender: "bot",
+              timestamp: new Date().toLocaleTimeString(),
+            }
+            setMessages((prev) => [...prev, botResponse])
+          } else {
+            // Fallback message if saving fails
+            const botResponse = {
+              id: Date.now() + 2,
+              text: "Thank you for your question. For detailed information about this topic, please contact our customer care at 1800-233-4526 where our experts can assist you better.",
+              sender: "bot",
+              timestamp: new Date().toLocaleTimeString(),
+            }
+            setMessages((prev) => [...prev, botResponse])
           }
-          setMessages((prev) => [...prev, intentMessage])
-        }
+        } else {
+          // Add intent recognition info if available
+          if (result.intent) {
+            const intentMessage = {
+              id: Date.now() + 1,
+              text: `Intent: ${result.intent}`,
+              sender: "system",
+              timestamp: new Date().toLocaleTimeString(),
+              type: "intent",
+            }
+            setMessages((prev) => [...prev, intentMessage])
+          }
 
-        // Add Gemini response
-        const botResponse = {
-          id: Date.now() + 2,
-          text:
-            cleanResponseText(result.response) ||
-            result.error ||
-            "I apologize, but I couldn't process your request at this time.",
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString(),
+          // Add normal chat API response
+          const botResponse = {
+            id: Date.now() + 2,
+            text:
+              cleanResponseText(result.response) ||
+              result.error ||
+              "I apologize, but I couldn't process your request at this time.",
+            sender: "bot",
+            timestamp: new Date().toLocaleTimeString(),
+          }
+          setMessages((prev) => [...prev, botResponse])
         }
-        setMessages((prev) => [...prev, botResponse])
       } else {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || "Service temporarily unavailable")
       }
     } catch (error: any) {
-      console.error("Gemini API error:", error)
+      console.error("Chat API error:", error)
       const errorResponse = {
         id: Date.now() + 3,
         text: cleanResponseText(`Service temporarily unavailable. Please try again later.`),
@@ -510,15 +597,15 @@ const ChatbotWidget = () => {
             } else {
               await sendMessageToGemini(transcribedText)
             }
-          } catch (geminiError: any) {
-            console.error("Error with Gemini after STT:", geminiError)
-            const geminiErrorResponse = {
+          } catch (chatError: any) {
+            console.error("Error with chat API after STT:", chatError)
+            const chatErrorResponse = {
               id: Date.now(),
               text: cleanResponseText(`Voice input processed, but service temporarily unavailable.`),
               sender: "bot",
               timestamp: new Date().toLocaleTimeString(),
             }
-            setMessages((prev) => [...prev, geminiErrorResponse])
+            setMessages((prev) => [...prev, chatErrorResponse])
           }
         } else {
           throw new Error("Voice processing failed")
@@ -556,6 +643,9 @@ const ChatbotWidget = () => {
   ]
 
   const handleQuickAction = async (action: string) => {
+    // Auto-collapse the quick services dropdown after selection
+    setIsQuickServicesExpanded(false)
+    
     const message = {
       id: messages.length + 1,
       text: action,
@@ -1237,21 +1327,54 @@ const ChatbotWidget = () => {
                 
                 {isAuthenticated && (
                   <div className="px-3 sm:px-4 pb-2 bg-white/80 backdrop-blur-sm flex-shrink-0 border-t border-slate-200/50 animate-fade-in-up">
-                    <p className="text-xs text-slate-600 mb-2 font-medium">Quick Banking Services:</p>
-                    <div className="flex flex-wrap gap-1 sm:gap-2">
-                      {quickActions.map((action, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleQuickAction(action)}
-                          className="text-xs bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 px-2 sm:px-3 py-1 rounded-lg hover:from-blue-100 hover:to-purple-100 hover:text-blue-700 transition-all duration-300 border border-slate-200 hover:border-blue-300 transform hover:scale-105 hover:shadow-md animate-fade-in-up opacity-0"
-                          style={{
-                            animationDelay: `${index * 0.1}s`,
-                            animationFillMode: "forwards",
-                          }}
-                        >
-                          {action}
-                        </button>
-                      ))}
+                    <div 
+                      className="flex items-center justify-between cursor-pointer hover:bg-slate-50/50 rounded-lg p-2 -m-1 transition-all duration-200 group"
+                      onClick={() => setIsQuickServicesExpanded(!isQuickServicesExpanded)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <p className="text-xs text-slate-600 font-medium">Quick Banking Services</p>
+                        {!isQuickServicesExpanded && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-600 border border-blue-200">
+                            {quickActions.length} services
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">
+                          {isQuickServicesExpanded ? 'Hide' : 'Show'}
+                        </span>
+                        {isQuickServicesExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-all duration-200" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-all duration-200" />
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Collapsible Quick Actions */}
+                    <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                      isQuickServicesExpanded 
+                        ? 'max-h-96 opacity-100 mt-2' 
+                        : 'max-h-0 opacity-0'
+                    }`}>
+                      <div className="flex flex-wrap gap-1 sm:gap-2 pt-1">
+                        {quickActions.map((action, index) => (
+                          <button
+                            key={index}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickAction(action);
+                            }}
+                            className="text-xs bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 px-2 sm:px-3 py-1 rounded-lg hover:from-blue-100 hover:to-purple-100 hover:text-blue-700 transition-all duration-300 border border-slate-200 hover:border-blue-300 transform hover:scale-105 hover:shadow-md animate-fade-in-up opacity-0"
+                            style={{
+                              animationDelay: `${index * 0.1}s`,
+                              animationFillMode: "forwards",
+                            }}
+                          >
+                            {action}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

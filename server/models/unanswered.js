@@ -13,7 +13,7 @@ const unansweredQuestionSchema = new mongoose.Schema(
         notifyUser: {
             type: Boolean,
             default: false
-        }, // true => send notification when answered
+        },
         adminAnswer: {
             type: String
         },

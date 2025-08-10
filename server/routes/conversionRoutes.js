@@ -9,18 +9,14 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const fs = require('fs');
 
-// Configure multer for file uploads
 const upload = multer({ dest: 'uploads/' });
 
-// Request debouncing for TTS to prevent multiple calls
 const ttsRequestCache = new Map();
 const TTS_DEBOUNCE_TIME = 1000; // 1 second debounce
 
-// Start the persistent Python bridge
 console.log("Starting persistent Python bridge...");
 const pyProcess = spawn('python', ['./controller/Python/py_bridge.py']);
 
-// Log any Python-side errors
 pyProcess.stderr.on('data', (data) => {
     console.error('Python bridge error:', data.toString());
 });

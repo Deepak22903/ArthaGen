@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 from banking_functions import *
 from understand_intent import understand_intent, format_response
 from rag_handler import rag_query_handler  # Import the initialized RAG handler
-from unanswered_handler import save_unanswered_question  # Import unanswered questions handler
 
 class GeminiChat:
     def __init__(self):
@@ -110,72 +109,6 @@ def intelligent_banking_chat(message, session_id=None, language=None):
         # TASK 1: Understand intent using Gemini
         intent = understand_intent(message_clean, selected_language, gemini_model, banking_functions_dict, logger)
         logger.info(f"Intent recognized: {intent}")
-        print(f"PYTHON LOG: Intent recognized: {intent}", flush=True)
-        
-        # Handle unrecognized intents by saving as unanswered questions
-        if intent == "unrecognized_intent":
-            logger.warning(f"Intent not recognized for message: {message_clean}")
-            print(f"PYTHON LOG: Saving unrecognized intent as unanswered question: {message_clean}", flush=True)
-            
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question
-            save_result = save_unanswered_question(message_clean, mobile_no, session_id)
-            print(f"PYTHON LOG: Unrecognized intent save result: {save_result}", flush=True)
-            
-            if save_result['success']:
-                # Return a response indicating the question has been saved
-                response_message = "I couldn't understand your specific request. Your question has been saved and our team will review it shortly. You can also try rephrasing your question or contact our customer care at 1800-233-4526."
-            else:
-                # Fallback if saving fails
-                logger.error(f"Failed to save unanswered question: {save_result['message']}")
-                response_message = "I couldn't understand your specific request. Please try rephrasing your question or contact our customer care at 1800-233-4526 for assistance."
-            
-            return {
-                'response': response_message,
-                'user_message': message_clean,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'unrecognized_saved',
-                'is_banking': True,
-                'intent': 'unrecognized_intent',
-                'saved_as_unanswered': save_result['success']
-            }
-        
-        # Handle general_inquiry intent by saving as unanswered questions
-        if intent == "general_inquiry":
-            logger.info(f"General inquiry detected for message: {message_clean}")
-            print(f"PYTHON LOG: Saving general inquiry as unanswered question: {message_clean}", flush=True)
-            
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question for expert review
-            print(f"PYTHON LOG: Calling save_unanswered_question with message: {message_clean}, mobile: {mobile_no}, session: {session_id}", flush=True)
-            save_result = save_unanswered_question(message_clean, mobile_no, session_id)
-            print(f"PYTHON LOG: General inquiry save result: {save_result}", flush=True)
-            
-            if save_result['success']:
-                # Return a response indicating the question has been saved for expert review
-                response_message = "Thank you for your question. Since this requires detailed information, I've forwarded it to our expert team for a comprehensive answer. You'll receive a response soon, or you can contact our customer care at 1800-233-4526 for immediate assistance."
-                print(f"PYTHON LOG: Successfully saved general inquiry, returning response", flush=True)
-            else:
-                # Fallback if saving fails
-                logger.error(f"Failed to save general inquiry: {save_result['message']}")
-                response_message = "Thank you for your question. For detailed information about this topic, please contact our customer care at 1800-233-4526 where our experts can assist you better."
-                print(f"PYTHON LOG: Failed to save general inquiry: {save_result['message']}", flush=True)
-            
-            return {
-                'response': response_message,
-                'user_message': message_clean,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'general_inquiry_saved',
-                'is_banking': True,
-                'intent': 'general_inquiry',
-                'saved_as_unanswered': save_result['success']
-            }
         
         raw_response = ""
         
@@ -198,36 +131,6 @@ def intelligent_banking_chat(message, session_id=None, language=None):
             raw_response = banking_functions_dict[intent](message_clean)
         else:
             raw_response = general_inquiry(message_clean)
-        
-        # Check if general_inquiry identified this as a specific question needing admin attention
-        if raw_response.startswith("SPECIFIC_QUESTION:"):
-            specific_question = raw_response.replace("SPECIFIC_QUESTION: ", "")
-            logger.warning(f"Specific question detected in general inquiry: {specific_question}")
-            print(f"PYTHON LOG: Saving specific question as unanswered: {specific_question}", flush=True)
-            
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question
-            save_result = save_unanswered_question(specific_question, mobile_no, session_id)
-            print(f"PYTHON LOG: Specific question save result: {save_result}", flush=True)
-            
-            if save_result['success']:
-                response_message = "Thank you for your specific question. I've saved it for our expert team to review and provide you with a detailed answer. You can also contact our customer care at 1800-233-4526 for immediate assistance."
-            else:
-                logger.error(f"Failed to save specific question: {save_result['message']}")
-                response_message = "Thank you for your question. For detailed information about this topic, please contact our customer care at 1800-233-4526 where our experts can assist you better."
-            
-            return {
-                'response': response_message,
-                'user_message': message_clean,
-                'session_id': session_id,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'specific_question_saved',
-                'is_banking': True,
-                'intent': 'specific_question',
-                'saved_as_unanswered': save_result['success']
-            }
         
         # TASK 2: Format response using Gemini
         formatted_response = format_response(raw_response, selected_language, message_clean, gemini_model, logger)
