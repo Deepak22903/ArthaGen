@@ -7,6 +7,49 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def get_mobile_from_session(session_id):
+    """
+    Get mobile number from session ID by calling Node.js API
+    """
+    if not session_id:
+        return None
+        
+    try:
+        print(f"PYTHON LOG: Fetching mobile number for session_id: {session_id}", flush=True)
+        
+        # Call Node.js API to get session details
+        api_url = f"http://localhost:8000/api/session/{session_id}"
+        
+        response = requests.get(
+            api_url,
+            headers={'Content-Type': 'application/json'},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            print(f"PYTHON LOG: Session response received: {response_data}", flush=True)
+            
+            # Extract mobile number from response structure
+            if (response_data.get('status') == 'success' and 
+                'session' in response_data and 
+                'user' in response_data['session'] and 
+                'mobileNo' in response_data['session']['user']):
+                
+                mobile_no = response_data['session']['user']['mobileNo']
+                print(f"PYTHON LOG: Extracted mobile number: {mobile_no}", flush=True)
+                return mobile_no
+            else:
+                print(f"PYTHON LOG: No mobile number found in session response structure", flush=True)
+                return None
+        else:
+            print(f"PYTHON LOG: Failed to fetch session: {response.status_code} - {response.text}", flush=True)
+            return None
+            
+    except Exception as e:
+        print(f"PYTHON LOG: Error fetching mobile from session: {str(e)}", flush=True)
+        return None
+
 def save_unanswered_question(question, mobile_no=None, session_id=None):
     """
     Save unanswered question to database via Node.js API
@@ -14,9 +57,16 @@ def save_unanswered_question(question, mobile_no=None, session_id=None):
     try:
         print(f"PYTHON LOG: save_unanswered_question called with question: {question}, mobile_no: {mobile_no}, session_id: {session_id}", flush=True)
         
-        # Default mobile number if not provided (you can modify this logic)
+        # Try to get mobile number from session if not provided
+        if not mobile_no and session_id:
+            mobile_no = get_mobile_from_session(session_id)
+        
+        # Default mobile number if still not available
         if not mobile_no:
             mobile_no = "unknown"
+            print(f"PYTHON LOG: Using default mobile number: {mobile_no}", flush=True)
+        else:
+            print(f"PYTHON LOG: Using mobile number: {mobile_no}", flush=True)
         
         # Prepare payload
         payload = {
@@ -39,7 +89,7 @@ def save_unanswered_question(question, mobile_no=None, session_id=None):
             timeout=5
         )
         
-        print(f"PYTHON LOG: API response status: {response.status_code}, text: {response.text}", flush=True)
+        # print(f"PYTHON LOG: API response status: {response.status_code}, text: {response.text}", flush=True)
         
         if response.status_code == 201:
             logger.info(f"Unanswered question saved successfully: {question[:50]}...")

@@ -117,12 +117,9 @@ def intelligent_banking_chat(message, session_id=None, language=None):
             logger.warning(f"Intent not recognized for message: {message_clean}")
             print(f"PYTHON LOG: Saving unrecognized intent as unanswered question: {message_clean}", flush=True)
             
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question
-            save_result = save_unanswered_question(message_clean, mobile_no, session_id)
-            print(f"PYTHON LOG: Unrecognized intent save result: {save_result}", flush=True)
+            # Save as unanswered question (mobile number will be fetched from session)
+            save_result = save_unanswered_question(message_clean, None, session_id)
+            # print(f"PYTHON LOG: Unrecognized intent save result: {save_result}", flush=True)
             
             if save_result['success']:
                 # Return a response indicating the question has been saved
@@ -148,12 +145,9 @@ def intelligent_banking_chat(message, session_id=None, language=None):
             logger.info(f"General inquiry detected for message: {message_clean}")
             print(f"PYTHON LOG: Saving general inquiry as unanswered question: {message_clean}", flush=True)
             
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question for expert review
-            print(f"PYTHON LOG: Calling save_unanswered_question with message: {message_clean}, mobile: {mobile_no}, session: {session_id}", flush=True)
-            save_result = save_unanswered_question(message_clean, mobile_no, session_id)
+            # Save as unanswered question for expert review (mobile number will be fetched from session)
+            print(f"PYTHON LOG: Calling save_unanswered_question with session: {session_id}", flush=True)
+            save_result = save_unanswered_question(message_clean, None, session_id)
             print(f"PYTHON LOG: General inquiry save result: {save_result}", flush=True)
             
             if save_result['success']:
@@ -205,11 +199,8 @@ def intelligent_banking_chat(message, session_id=None, language=None):
             logger.warning(f"Specific question detected in general inquiry: {specific_question}")
             print(f"PYTHON LOG: Saving specific question as unanswered: {specific_question}", flush=True)
             
-            # Try to extract mobile number from session or use default
-            mobile_no = "unknown"  # You can modify this to extract from session if available
-            
-            # Save as unanswered question
-            save_result = save_unanswered_question(specific_question, mobile_no, session_id)
+            # Save as unanswered question (mobile number will be fetched from session)
+            save_result = save_unanswered_question(specific_question, None, session_id)
             print(f"PYTHON LOG: Specific question save result: {save_result}", flush=True)
             
             if save_result['success']:
